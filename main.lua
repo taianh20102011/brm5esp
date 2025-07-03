@@ -1,11 +1,19 @@
--- ✅ ESP + AIMBOT + GUI HOẠT ĐỘNG TRONG STUDIO + HỖ TRỢ VELOCITY + CHẠY ĐƯỢC TRONG BHRM5 + TÊN + MÁU
+-- ✅ ESP + AIMBOT + GUI HOẠT ĐỘNG TRONG BHRM5 + HỖ TRỢ VELOCITY EXECUTOR
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
+-- Wait for LocalPlayer & GUI
+local LocalPlayer = Players.LocalPlayer
+while not LocalPlayer or not LocalPlayer:FindFirstChild("PlayerGui") do
+    task.wait()
+    LocalPlayer = Players.LocalPlayer
+end
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- SETTINGS
 local AIM_PART = "Head"
 local FOV_RADIUS = 120
 local AIMBOT_KEY = Enum.KeyCode.Q
@@ -13,14 +21,18 @@ local CAMERA_KEY = Enum.KeyCode.V
 local SHOW_PLAYER_ESP = true
 local SHOW_NPC_ESP = true
 local SHOW_SNAPLINE = true
+local velocityPrediction = true
 
+-- STATE
 local aimbotEnabled = false
 local thirdPerson = false
 local dragging = false
-local velocityPrediction = true
 
--- Create GUI
-local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "AimbotESP_GUI"
+gui.ResetOnSpawn = false
+gui.Parent = PlayerGui
 
 local fovCircle = Instance.new("Frame", gui)
 fovCircle.Size = UDim2.new(0, FOV_RADIUS * 2, 0, FOV_RADIUS * 2)
@@ -37,7 +49,6 @@ local panel = Instance.new("Frame", gui)
 panel.Size = UDim2.new(0, 200, 0, 250)
 panel.Position = UDim2.new(0, 20, 0, 20)
 panel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-panel.Draggable = true
 panel.Active = true
 
 local function addButton(y, text, callback)
@@ -136,6 +147,16 @@ local function clearESP()
 	end
 end
 
+-- Prediction function
+local function getPredictedPosition(part)
+	if not part or not part:IsA("BasePart") then return part.Position end
+	local velocity = part.Velocity
+	local distance = (Camera.CFrame.Position - part.Position).Magnitude
+	local bulletSpeed = 400 -- điều chỉnh nếu cần
+	local timeToTarget = distance / bulletSpeed
+	return part.Position + velocity * timeToTarget
+end
+
 -- Render Loop
 RunService.RenderStepped:Connect(function()
 	local mouse = UserInputService:GetMouseLocation()
@@ -187,14 +208,7 @@ RunService.RenderStepped:Connect(function()
 	end
 
 	if aimbotEnabled and closest then
-		local predictPos = closest.Position
-		if velocityPrediction then
-			local char = closest.Parent
-			if char and char:FindFirstChild("HumanoidRootPart") then
-				local vel = char.HumanoidRootPart.Velocity
-				predictPos = predictPos + vel * 0.07
-			end
-		end
+		local predictPos = velocityPrediction and getPredictedPosition(closest) or closest.Position
 		Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, predictPos)
 	elseif thirdPerson and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
 		local root = LocalPlayer.Character.HumanoidRootPart
