@@ -22,11 +22,13 @@ local SHOW_PLAYER_ESP = true
 local SHOW_NPC_ESP = true
 local SHOW_SNAPLINE = true
 local velocityPrediction = true
+local holdRightMouseToAim = true
 
 -- STATE
 local aimbotEnabled = false
 local thirdPerson = false
 local dragging = false
+local rightMouseHeld = false
 
 -- GUI
 local gui = Instance.new("ScreenGui")
@@ -46,37 +48,51 @@ local corner = Instance.new("UICorner", fovCircle)
 corner.CornerRadius = UDim.new(1, 0)
 
 local panel = Instance.new("Frame", gui)
-panel.Size = UDim2.new(0, 200, 0, 250)
+panel.Size = UDim2.new(0, 220, 0, 270)
 panel.Position = UDim2.new(0, 20, 0, 20)
-panel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+panel.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+panel.BorderColor3 = Color3.fromRGB(0, 255, 255)
+panel.BorderSizePixel = 2
 panel.Active = true
+
+local title = Instance.new("TextLabel", panel)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.Text = "🎯 ESP & Aimbot GUI"
+title.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
 
 local function addButton(y, text, callback)
 	local btn = Instance.new("TextButton", panel)
 	btn.Position = UDim2.new(0, 10, 0, y)
-	btn.Size = UDim2.new(0, 180, 0, 30)
+	btn.Size = UDim2.new(0, 200, 0, 30)
 	btn.Text = text
 	btn.TextScaled = true
 	btn.Font = Enum.Font.GothamBold
-	btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+	btn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
 	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.BorderSizePixel = 0
 	btn.MouseButton1Click:Connect(callback)
 end
 
-addButton(10, "Toggle Aimbot (Q)", function()
+addButton(30, "Toggle Aimbot (Q)", function()
 	aimbotEnabled = not aimbotEnabled
 end)
-addButton(45, "Toggle POV (V)", function()
+addButton(65, "Toggle POV (V)", function()
 	thirdPerson = not thirdPerson
 end)
-addButton(80, "Player ESP", function()
+addButton(100, "Player ESP", function()
 	SHOW_PLAYER_ESP = not SHOW_PLAYER_ESP
 end)
-addButton(115, "NPC ESP", function()
+addButton(135, "NPC ESP", function()
 	SHOW_NPC_ESP = not SHOW_NPC_ESP
 end)
-addButton(150, "Velocity Predict", function()
+addButton(170, "Velocity Predict", function()
 	velocityPrediction = not velocityPrediction
+end)
+addButton(205, "Hold RMB to Aim", function()
+	holdRightMouseToAim = not holdRightMouseToAim
 end)
 
 -- ESP Storage
@@ -114,8 +130,8 @@ end
 
 -- FOV Slider
 local sliderLabel = Instance.new("TextLabel", panel)
-sliderLabel.Position = UDim2.new(0, 10, 0, 185)
-sliderLabel.Size = UDim2.new(0, 180, 0, 20)
+sliderLabel.Position = UDim2.new(0, 10, 0, 240)
+sliderLabel.Size = UDim2.new(0, 200, 0, 20)
 sliderLabel.BackgroundTransparency = 1
 sliderLabel.Font = Enum.Font.Gotham
 sliderLabel.TextScaled = true
@@ -123,13 +139,13 @@ sliderLabel.TextColor3 = Color3.new(1,1,1)
 sliderLabel.Text = "FOV Radius: " .. FOV_RADIUS
 
 local slider = Instance.new("TextButton", panel)
-slider.Position = UDim2.new(0, 10, 0, 210)
-slider.Size = UDim2.new(0, 180, 0, 20)
+slider.Position = UDim2.new(0, 10, 0, 260)
+slider.Size = UDim2.new(0, 200, 0, 15)
 slider.BackgroundColor3 = Color3.fromRGB(70, 70, 100)
 slider.Text = ""
 
 local handle = Instance.new("Frame", slider)
-handle.Size = UDim2.new(0, 10, 0, 20)
+handle.Size = UDim2.new(0, 10, 0, 15)
 handle.Position = UDim2.new((FOV_RADIUS-30)/170, 0, 0, 0)
 handle.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
 
@@ -152,7 +168,7 @@ local function getPredictedPosition(part)
 	if not part or not part:IsA("BasePart") then return part.Position end
 	local velocity = part.Velocity
 	local distance = (Camera.CFrame.Position - part.Position).Magnitude
-	local bulletSpeed = 400 -- điều chỉnh nếu cần
+	local bulletSpeed = 400
 	local timeToTarget = distance / bulletSpeed
 	return part.Position + velocity * timeToTarget
 end
@@ -207,7 +223,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 
-	if aimbotEnabled and closest then
+	if aimbotEnabled and closest and (not holdRightMouseToAim or rightMouseHeld) then
 		local predictPos = velocityPrediction and getPredictedPosition(closest) or closest.Position
 		Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, predictPos)
 	elseif thirdPerson and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -220,4 +236,8 @@ UserInputService.InputBegan:Connect(function(i, gpe)
 	if gpe then return end
 	if i.KeyCode == AIMBOT_KEY then aimbotEnabled = not aimbotEnabled end
 	if i.KeyCode == CAMERA_KEY then thirdPerson = not thirdPerson end
+	if i.UserInputType == Enum.UserInputType.MouseButton2 then rightMouseHeld = true end
+end)
+UserInputService.InputEnded:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton2 then rightMouseHeld = false end
 end)
