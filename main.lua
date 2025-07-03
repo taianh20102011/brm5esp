@@ -1,7 +1,8 @@
--- ✅ ESP CHỈ (Player + NPC + Snapline + Tên + Máu) - TỐI ƯU CHẠY TRONG STUDIO & BHRM5
+-- ✅ ESP CHỈ (Player + NPC + Snapline + Tên + Máu) - CHẠY ĐƯỢC TRONG STUDIO + CLIENT (BHRM5/VELOCITY)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -12,13 +13,15 @@ local SHOW_SNAPLINE = true
 local AIM_PART = "Head"
 
 -- 🧱 Tạo vùng chứa ESP
-local highlightFolder = Instance.new("Folder", workspace)
+local highlightFolder = Instance.new("Folder")
 highlightFolder.Name = "ESP_Highlights"
+highlightFolder.Parent = Camera
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ESP_GUI"
 gui.ResetOnSpawn = false
-gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+gui.IgnoreGuiInset = true
+gui.Parent = CoreGui
 
 local lineFolder = Instance.new("Folder", gui)
 lineFolder.Name = "ESP_Lines"
@@ -49,6 +52,7 @@ local function createBillboard(model, nameText, health, maxHealth)
 	bb.AlwaysOnTop = true
 	bb.Name = "ESP_Billboard"
 	bb.Adornee = model:FindFirstChild("Head") or model:FindFirstChild("HumanoidRootPart")
+	bb.Parent = Camera
 
 	local nameLabel = Instance.new("TextLabel", bb)
 	nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
@@ -66,8 +70,6 @@ local function createBillboard(model, nameText, health, maxHealth)
 	hpLabel.TextScaled = true
 	hpLabel.BackgroundTransparency = 1
 	hpLabel.Font = Enum.Font.Gotham
-
-	bb.Parent = highlightFolder
 end
 
 -- 🔄 Vòng lặp ESP
