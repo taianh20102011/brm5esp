@@ -1,4 +1,4 @@
--- ✅ ESP CHỈ (Player + NPC + Snapline + Tên + Máu) - CHẠY ĐƯỢC TRONG STUDIO + CLIENT (BHRM5/VELOCITY)
+-- ✅ ESP CHỈ (Player + NPC + Snapline + Tên + Máu) - TƯƠNG THÍCH MỌI MAP (BHRM5, VELOCITY, CUSTOM)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -10,7 +10,6 @@ local LocalPlayer = Players.LocalPlayer
 local SHOW_PLAYER_ESP = true
 local SHOW_NPC_ESP = true
 local SHOW_SNAPLINE = true
-local AIM_PART = "Head"
 
 -- 🧱 Tạo vùng chứa ESP
 local highlightFolder = Instance.new("Folder")
@@ -75,22 +74,27 @@ end
 -- 🔄 Vòng lặp ESP
 RunService.RenderStepped:Connect(function()
 	clearESP()
+	local count = 0
 
 	for _, model in ipairs(workspace:GetDescendants()) do
-		if model:IsA("Model") and model:FindFirstChild(AIM_PART) and model:FindFirstChildOfClass("Humanoid") then
+		if model:IsA("Model") then
+			local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
+			local head = model:FindFirstChild("Head") or root
+			local humanoid = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChildOfClass("AnimationController")
+
+			if not (head and humanoid) then continue end
+
 			local isPlayer = Players:GetPlayerFromCharacter(model)
 			if isPlayer and not SHOW_PLAYER_ESP then continue end
 			if not isPlayer and not SHOW_NPC_ESP then continue end
 			if isPlayer == LocalPlayer then continue end
 
-			local head = model[AIM_PART]
 			local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
 			if not onScreen then continue end
 
-			local humanoid = model:FindFirstChildOfClass("Humanoid")
-			local hp = math.floor(humanoid.Health)
-			local maxhp = math.floor(humanoid.MaxHealth)
-			createBillboard(model, model.Name, hp, maxhp)
+			local hp = humanoid.Health or 0
+			local maxhp = humanoid.MaxHealth or 100
+			createBillboard(model, model.Name, math.floor(hp), math.floor(maxhp))
 
 			local highlight = Instance.new("Highlight")
 			highlight.Adornee = model
@@ -103,6 +107,14 @@ RunService.RenderStepped:Connect(function()
 			if SHOW_SNAPLINE then
 				drawSnapline(Vector2.new(screenPos.X, screenPos.Y))
 			end
+
+			count += 1
 		end
+	end
+
+	if count == 0 then
+		print("⚠️ Không tìm thấy NPC hoặc Player nào có thể ESP")
+	else
+		print("✅ ESP hiển thị cho " .. count .. " đối tượng")
 	end
 end)
