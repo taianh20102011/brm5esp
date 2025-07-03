@@ -1,21 +1,20 @@
--- ✅ ESP + AIMBOT + GUI HOẠT ĐỘNG TRONG BHRM5 + HỖ TRỢ VELOCITY EXECUTOR
+-- ✅ ESP + AIMBOT + GUI HOẠT ĐỘNG TRONG BHRM5 + HỖ TRỢ VELOCITY EXECUTOR + SNAPLINE + TRIGGERBOT + PREDICTION MENU + CHAMS
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
--- Wait for LocalPlayer & GUI
 local LocalPlayer = Players.LocalPlayer
 while not LocalPlayer or not LocalPlayer:FindFirstChild("PlayerGui") do
-    task.wait()
-    LocalPlayer = Players.LocalPlayer
+	task.wait()
+	LocalPlayer = Players.LocalPlayer
 end
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- SETTINGS
 local AIM_PART = "Head"
 local FOV_RADIUS = 120
+local PREDICTION_TIME = 0.07
 local AIMBOT_KEY = Enum.KeyCode.Q
 local CAMERA_KEY = Enum.KeyCode.V
 local SHOW_PLAYER_ESP = true
@@ -23,14 +22,12 @@ local SHOW_NPC_ESP = true
 local SHOW_SNAPLINE = true
 local velocityPrediction = true
 local holdRightMouseToAim = true
+local triggerBot = true
 
--- STATE
 local aimbotEnabled = false
 local thirdPerson = false
-local dragging = false
 local rightMouseHeld = false
 
--- GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "AimbotESP_GUI"
 gui.ResetOnSpawn = false
@@ -48,7 +45,7 @@ local corner = Instance.new("UICorner", fovCircle)
 corner.CornerRadius = UDim.new(1, 0)
 
 local panel = Instance.new("Frame", gui)
-panel.Size = UDim2.new(0, 220, 0, 270)
+panel.Size = UDim2.new(0, 220, 0, 300)
 panel.Position = UDim2.new(0, 20, 0, 20)
 panel.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 panel.BorderColor3 = Color3.fromRGB(0, 255, 255)
@@ -94,13 +91,52 @@ end)
 addButton(205, "Hold RMB to Aim", function()
 	holdRightMouseToAim = not holdRightMouseToAim
 end)
+addButton(240, "TriggerBot", function()
+	triggerBot = not triggerBot
+end)
 
--- ESP Storage
+local predSlider = Instance.new("TextBox", panel)
+predSlider.Position = UDim2.new(0, 10, 0, 275)
+predSlider.Size = UDim2.new(0, 200, 0, 20)
+predSlider.Text = "Prediction Time: " .. tostring(PREDICTION_TIME)
+predSlider.TextColor3 = Color3.fromRGB(255,255,255)
+predSlider.BackgroundColor3 = Color3.fromRGB(40,40,60)
+predSlider.FocusLost:Connect(function()
+	local val = tonumber(predSlider.Text:match("%d+%.?%d*"))
+	if val then
+		PREDICTION_TIME = val
+		predSlider.Text = "Prediction Time: " .. tostring(PREDICTION_TIME)
+	end
+end)
+
 local highlightFolder = Instance.new("Folder", workspace)
 highlightFolder.Name = "ESP_Highlights"
+local lineFolder = Instance.new("Folder", gui)
+lineFolder.Name = "ESP_Lines"
 
--- Billboard for name + HP
-local function createBillboard(model, nameText, healthText)
+local function clearESP()
+	highlightFolder:ClearAllChildren()
+	lineFolder:ClearAllChildren()
+end
+
+local function getPredictedPosition(part)
+	if not part or not part:IsA("BasePart") then return part.Position end
+	local velocity = part.AssemblyLinearVelocity or part.Velocity
+	return part.Position + velocity * PREDICTION_TIME
+end
+
+local function drawSnapline(screenPos)
+	local line = Instance.new("Frame")
+	line.Size = UDim2.new(0, 2, 0, (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude)
+	line.AnchorPoint = Vector2.new(0.5, 0)
+	line.Position = UDim2.new(0, Camera.ViewportSize.X/2, 0, Camera.ViewportSize.Y/2)
+	line.Rotation = math.deg(math.atan2(screenPos.Y - Camera.ViewportSize.Y/2, screenPos.X - Camera.ViewportSize.X/2)) - 90
+	line.BackgroundColor3 = Color3.fromRGB(255,255,0)
+	line.BorderSizePixel = 0
+	line.Parent = lineFolder
+end
+
+local function createBillboard(model, nameText, health, maxHealth)
 	local bb = Instance.new("BillboardGui")
 	bb.Size = UDim2.new(0, 200, 0, 40)
 	bb.StudsOffset = Vector3.new(0, 3.5, 0)
@@ -119,7 +155,7 @@ local function createBillboard(model, nameText, healthText)
 	local hpLabel = Instance.new("TextLabel", bb)
 	hpLabel.Position = UDim2.new(0, 0, 0.5, 0)
 	hpLabel.Size = UDim2.new(1, 0, 0.5, 0)
-	hpLabel.Text = healthText
+	hpLabel.Text = "HP: " .. health .. "/" .. maxHealth
 	hpLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
 	hpLabel.TextScaled = true
 	hpLabel.BackgroundTransparency = 1
@@ -128,64 +164,15 @@ local function createBillboard(model, nameText, healthText)
 	bb.Parent = highlightFolder
 end
 
--- FOV Slider
-local sliderLabel = Instance.new("TextLabel", panel)
-sliderLabel.Position = UDim2.new(0, 10, 0, 240)
-sliderLabel.Size = UDim2.new(0, 200, 0, 20)
-sliderLabel.BackgroundTransparency = 1
-sliderLabel.Font = Enum.Font.Gotham
-sliderLabel.TextScaled = true
-sliderLabel.TextColor3 = Color3.new(1,1,1)
-sliderLabel.Text = "FOV Radius: " .. FOV_RADIUS
-
-local slider = Instance.new("TextButton", panel)
-slider.Position = UDim2.new(0, 10, 0, 260)
-slider.Size = UDim2.new(0, 200, 0, 15)
-slider.BackgroundColor3 = Color3.fromRGB(70, 70, 100)
-slider.Text = ""
-
-local handle = Instance.new("Frame", slider)
-handle.Size = UDim2.new(0, 10, 0, 15)
-handle.Position = UDim2.new((FOV_RADIUS-30)/170, 0, 0, 0)
-handle.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-
-slider.InputBegan:Connect(function(i)
-	if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
-end)
-UserInputService.InputEnded:Connect(function(i)
-	if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-end)
-
--- Clean Highlights
-local function clearESP()
-	for _, v in pairs(highlightFolder:GetChildren()) do
-		v:Destroy()
-	end
+local function triggerAction(target)
+	print("TriggerBot target: ", target and target.Parent and target.Parent.Name or "Unknown")
 end
 
--- Prediction function
-local function getPredictedPosition(part)
-	if not part or not part:IsA("BasePart") then return part.Position end
-	local velocity = part.Velocity
-	local distance = (Camera.CFrame.Position - part.Position).Magnitude
-	local bulletSpeed = 400
-	local timeToTarget = distance / bulletSpeed
-	return part.Position + velocity * timeToTarget
-end
-
--- Render Loop
 RunService.RenderStepped:Connect(function()
 	local mouse = UserInputService:GetMouseLocation()
 	fovCircle.Position = UDim2.new(0, mouse.X, 0, mouse.Y)
 	fovCircle.Size = UDim2.new(0, FOV_RADIUS*2, 0, FOV_RADIUS*2)
 	fovCircle.Visible = aimbotEnabled
-
-	if dragging then
-		local pct = math.clamp((mouse.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
-		FOV_RADIUS = math.floor(30 + pct * 170)
-		sliderLabel.Text = "FOV Radius: " .. FOV_RADIUS
-		handle.Position = UDim2.new(pct, 0, 0, 0)
-	end
 
 	clearESP()
 	local closest, shortest = nil, FOV_RADIUS
@@ -198,22 +185,23 @@ RunService.RenderStepped:Connect(function()
 			if isPlayer == LocalPlayer then continue end
 
 			local head = model[AIM_PART]
-			local torso = model:FindFirstChild("HumanoidRootPart") or head
 			local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
 			if not onScreen then continue end
 
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local hp = math.floor(humanoid.Health)
+			local maxhp = math.floor(humanoid.MaxHealth)
+			createBillboard(model, model.Name, hp, maxhp)
+
 			local highlight = Instance.new("Highlight")
 			highlight.Adornee = model
-			highlight.FillColor = isPlayer and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,140,0)
+			highlight.FillColor = Color3.fromRGB(255, math.clamp(255 - hp/maxhp * 255, 0, 255), 0)
 			highlight.OutlineColor = Color3.fromRGB(255,255,255)
 			highlight.FillTransparency = 0.3
 			highlight.OutlineTransparency = 0
 			highlight.Parent = highlightFolder
 
-			local name = isPlayer and model.Name or (model.Name .. " [NPC]")
-			local humanoid = model:FindFirstChildOfClass("Humanoid")
-			local hp = humanoid and math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth) or "?"
-			createBillboard(model, name, "HP: " .. hp)
+			if SHOW_SNAPLINE then drawSnapline(Vector2.new(screenPos.X, screenPos.Y)) end
 
 			local dist = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
 			if dist < shortest then
@@ -226,6 +214,7 @@ RunService.RenderStepped:Connect(function()
 	if aimbotEnabled and closest and (not holdRightMouseToAim or rightMouseHeld) then
 		local predictPos = velocityPrediction and getPredictedPosition(closest) or closest.Position
 		Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, predictPos)
+		if triggerBot then triggerAction(closest) end
 	elseif thirdPerson and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
 		local root = LocalPlayer.Character.HumanoidRootPart
 		Camera.CFrame = CFrame.new(root.Position - root.CFrame.LookVector * 6 + Vector3.new(0, 2, 0), root.Position)
@@ -238,6 +227,7 @@ UserInputService.InputBegan:Connect(function(i, gpe)
 	if i.KeyCode == CAMERA_KEY then thirdPerson = not thirdPerson end
 	if i.UserInputType == Enum.UserInputType.MouseButton2 then rightMouseHeld = true end
 end)
+
 UserInputService.InputEnded:Connect(function(i)
 	if i.UserInputType == Enum.UserInputType.MouseButton2 then rightMouseHeld = false end
 end)
